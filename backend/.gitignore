@@ -1,0 +1,13 @@
+# Folder Virtual Environment Python
+backend/env/
+backend/.venv/
+
+# Cache Python
+backend/__pycache__/
+*.pyc
+
+# Konfigurasi Environment (Jangan di-upload demi keamanan)
+.env
+
+# Folder sampah bawaan Mac
+.DS_Store
