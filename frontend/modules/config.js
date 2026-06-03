@@ -6,14 +6,16 @@
 // ===================================================================
 // API & Data URLs
 // ===================================================================
-export const API_BASE_URL = 'http://127.0.0.1:8000';
-export const GEOJSON_URL  = './data/indonesia.geojson';
+// export const API_BASE_URL = 'http://127.0.0.1:8000';
+export const API_BASE_URL = 'https://clementnth-webgis-kopi-backend.hf.space';
+
+export const GEOJSON_URL = './data/indonesia.geojson';
 
 // ===================================================================
 // Map Configuration
 // ===================================================================
 export const MAP_CENTER = [-2.5, 118.0];
-export const MAP_ZOOM   = 5;
+export const MAP_ZOOM = 5;
 export const MAP_MIN_ZOOM = 4;
 export const MAP_MAX_ZOOM = 10;
 
@@ -23,20 +25,20 @@ export const MAP_MAX_ZOOM = 10;
 export const LAYER_CONFIG = {
   prediksi_mean: {
     title: 'Prediksi Produktivitas (Ton/Ha)',
-    unit:  'Ton/Ha',
-    min:   0.0,
-    max:   1.1,
+    unit: 'Ton/Ha',
+    min: 0.0,
+    max: 1.1,
     colorFn: (t) => {
       const stops = [
         [255, 255, 229],
         [217, 240, 163],
         [120, 198, 121],
-        [49,  163, 84 ],
-        [0,   104, 55 ],
+        [49, 163, 84],
+        [0, 104, 55],
       ];
-      const idx  = t * (stops.length - 1);
-      const lo   = Math.floor(idx);
-      const hi   = Math.min(stops.length - 1, lo + 1);
+      const idx = t * (stops.length - 1);
+      const lo = Math.floor(idx);
+      const hi = Math.min(stops.length - 1, lo + 1);
       const frac = idx - lo;
       const r = Math.round(stops[lo][0] + frac * (stops[hi][0] - stops[lo][0]));
       const g = Math.round(stops[lo][1] + frac * (stops[hi][1] - stops[lo][1]));
@@ -52,28 +54,28 @@ export const LAYER_CONFIG = {
 // ===================================================================
 export const CATEGORY_STYLE = {
   high: {
-    label:  'Tinggi',
-    emoji:  '🟢',
-    bg:     '#DCFCE7',
-    color:  '#14532D',
+    label: 'Tinggi',
+    emoji: '🟢',
+    bg: '#DCFCE7',
+    color: '#14532D',
     border: '#4ADE80',
-    dot:    '#22C55E',
+    dot: '#22C55E',
   },
   medium: {
-    label:  'Sedang',
-    emoji:  '🟡',
-    bg:     '#FEF9C3',
-    color:  '#713F12',
+    label: 'Sedang',
+    emoji: '🟡',
+    bg: '#FEF9C3',
+    color: '#713F12',
     border: '#EAB308',
-    dot:    '#F59E0B',
+    dot: '#F59E0B',
   },
   low: {
-    label:  'Rendah',
-    emoji:  '🔴',
-    bg:     '#FEE2E2',
-    color:  '#7F1D1D',
+    label: 'Rendah',
+    emoji: '🔴',
+    bg: '#FEE2E2',
+    color: '#7F1D1D',
     border: '#F87171',
-    dot:    '#EF4444',
+    dot: '#EF4444',
   },
 };
 
@@ -98,40 +100,40 @@ export function getCategory(value) {
  */
 const GEOJSON_TO_API = {
   // GeoJSON value (uppercase)    → API value
-  'DI. ACEH':                      'Aceh',
-  'SUMATERA UTARA':                'Sumatera Utara',
-  'SUMATERA BARAT':                'Sumatera Barat',
-  'RIAU':                          'Riau',
-  'KEPULAUAN RIAU':                'Kepulauan Riau',
-  'JAMBI':                         'Jambi',
-  'SUMATERA SELATAN':              'Sumatera Selatan',
-  'BANGKA BELITUNG':               'Bangka Belitung',
-  'BENGKULU':                      'Bengkulu',
-  'LAMPUNG':                       'Lampung',
-  'DKI JAKARTA':                   'DKI Jakarta',
-  'JAWA BARAT':                    'Jawa Barat',
-  'BANTEN':                        'Banten',
-  'JAWA TENGAH':                   'Jawa Tengah',
-  'DAERAH ISTIMEWA YOGYAKARTA':    'D.I. Yogyakarta',
-  'JAWA TIMUR':                    'Jawa Timur',
-  'BALI':                          'Bali',
-  'NUSATENGGARA BARAT':            'Nusa Tenggara Barat',
-  'NUSA TENGGARA TIMUR':           'Nusa Tenggara Timur',
-  'KALIMANTAN BARAT':              'Kalimantan Barat',
-  'KALIMANTAN TENGAH':             'Kalimantan Tengah',
-  'KALIMANTAN SELATAN':            'Kalimantan Selatan',
-  'KALIMANTAN TIMUR':              'Kalimantan Timur',
-  'KALIMANTAN UTARA':              'Kalimantan Utara',
-  'SULAWESI UTARA':                'Sulawesi Utara',
-  'GORONTALO':                     'Gorontalo',
-  'SULAWESI TENGAH':               'Sulawesi Tengah',
-  'SULAWESI BARAT':                'Sulawesi Barat',
-  'SULAWESI SELATAN':              'Sulawesi Selatan',
-  'SULAWESI TENGGARA':             'Sulawesi Tenggara',
-  'MALUKU':                        'Maluku',
-  'MALUKU UTARA':                  'Maluku Utara',
-  'PAPUA BARAT':                   'Papua Barat',
-  'PAPUA':                         'Papua',
+  'DI. ACEH': 'Aceh',
+  'SUMATERA UTARA': 'Sumatera Utara',
+  'SUMATERA BARAT': 'Sumatera Barat',
+  'RIAU': 'Riau',
+  'KEPULAUAN RIAU': 'Kepulauan Riau',
+  'JAMBI': 'Jambi',
+  'SUMATERA SELATAN': 'Sumatera Selatan',
+  'BANGKA BELITUNG': 'Bangka Belitung',
+  'BENGKULU': 'Bengkulu',
+  'LAMPUNG': 'Lampung',
+  'DKI JAKARTA': 'DKI Jakarta',
+  'JAWA BARAT': 'Jawa Barat',
+  'BANTEN': 'Banten',
+  'JAWA TENGAH': 'Jawa Tengah',
+  'DAERAH ISTIMEWA YOGYAKARTA': 'D.I. Yogyakarta',
+  'JAWA TIMUR': 'Jawa Timur',
+  'BALI': 'Bali',
+  'NUSATENGGARA BARAT': 'Nusa Tenggara Barat',
+  'NUSA TENGGARA TIMUR': 'Nusa Tenggara Timur',
+  'KALIMANTAN BARAT': 'Kalimantan Barat',
+  'KALIMANTAN TENGAH': 'Kalimantan Tengah',
+  'KALIMANTAN SELATAN': 'Kalimantan Selatan',
+  'KALIMANTAN TIMUR': 'Kalimantan Timur',
+  'KALIMANTAN UTARA': 'Kalimantan Utara',
+  'SULAWESI UTARA': 'Sulawesi Utara',
+  'GORONTALO': 'Gorontalo',
+  'SULAWESI TENGAH': 'Sulawesi Tengah',
+  'SULAWESI BARAT': 'Sulawesi Barat',
+  'SULAWESI SELATAN': 'Sulawesi Selatan',
+  'SULAWESI TENGGARA': 'Sulawesi Tenggara',
+  'MALUKU': 'Maluku',
+  'MALUKU UTARA': 'Maluku Utara',
+  'PAPUA BARAT': 'Papua Barat',
+  'PAPUA': 'Papua',
 };
 
 /**

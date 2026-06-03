@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn.neighbors import kneighbors_graph
 from sklearn.preprocessing import StandardScaler, PowerTransformer
 from sklearn.metrics import r2_score, mean_absolute_error
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import logging
 
 logger = logging.getLogger(__name__)
