@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebGIS Produktivitas Kopi Indonesia — Bayesian Spatial GNN</title>
+  <meta name="description" content="Dashboard interaktif prediksi produktivitas kopi Indonesia menggunakan model Bayesian Spatial GNN dengan visualisasi choropleth dan analisis uncertainty." />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <!-- App Styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ================================================================
+       OVERLAY: LOADING
+       ================================================================ -->
+  <div id="overlay-loader" class="overlay overlay-loader">
+    <div class="overlay-box">
+      <div class="loader-ring">
+        <div class="loader-ring-inner"></div>
+        <i class="ti ti-map-2 loader-icon"></i>
+      </div>
+      <div class="loader-title">WebGIS Bayesian GNN</div>
+      <div id="loader-msg" class="loader-msg">Menginisialisasi sistem ...</div>
+      <div class="loader-progress">
+        <div class="loader-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       OVERLAY: ERROR
+       ================================================================ -->
+  <div id="overlay-error" class="overlay overlay-error d-none">
+    <div class="overlay-box overlay-box-error">
+      <div class="err-icon-wrap">
+        <i class="ti ti-alert-triangle"></i>
+      </div>
+      <div id="err-title" class="overlay-error-title">Terjadi Kesalahan</div>
+      <div id="err-body" class="overlay-error-body"></div>
+      <button class="btn btn-primary mt-3" onclick="location.reload()">
+        <i class="ti ti-refresh"></i> Coba Lagi
+      </button>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TOPBAR
+       ================================================================ -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">
+        <i class="ti ti-leaf"></i>
+      </div>
+      <div class="topbar-brand-text">
+        <span class="topbar-title">WebGIS Produktivitas Kopi</span>
+        <span class="topbar-sub">Indonesia · Bayesian Spatial GNN</span>
+      </div>
+    </div>
+
+    <nav class="topbar-nav" role="navigation" aria-label="Navigasi utama">
+      <button id="nav-peta"     class="nav-btn active" data-view="peta"    aria-label="Lihat Peta">
+        <i class="ti ti-map-2"></i> <span>Peta</span>
+      </button>
+      <button id="nav-prediksi" class="nav-btn"        data-view="prediksi" aria-label="Prediksi What-If">
+        <i class="ti ti-brain"></i> <span>Prediksi</span>
+      </button>
+      <button id="nav-info"     class="nav-btn"        data-view="info"    aria-label="Informasi Model">
+        <i class="ti ti-chart-dots-3"></i> <span>Model</span>
+      </button>
+    </nav>
+
+    <div class="topbar-meta">
+      <div class="status-indicator" title="Server terhubung">
+        <span class="status-dot"></span>
+        <span class="status-label">Live</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-badge">
+        <i class="ti ti-database"></i> BPS &amp; BMKG 2024 · N=34
+      </span>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       MAIN LAYOUT
+       ================================================================ -->
+  <main class="app-main">
+
+    <!-- ==============================================================
+         VIEW 1: PETA INTERAKTIF
+         ============================================================== -->
+    <div id="view-peta" class="app-view active">
+
+      <!-- ── SIDEBAR KIRI ── -->
+      <aside class="sidebar sidebar-left" role="complementary" aria-label="Panel Provinsi">
+
+        <!-- Tab Bar -->
+        <div class="tab-bar" role="tablist">
+          <button class="tab-btn active" id="tab-btn-list"   data-tab="tab-list"   role="tab" aria-selected="true">
+            <i class="ti ti-list"></i> <span>Provinsi</span>
+          </button>
+          <button class="tab-btn"        id="tab-btn-detail" data-tab="tab-detail" role="tab" aria-selected="false">
+            <i class="ti ti-map-pin"></i> <span>Detail</span>
+          </button>
+          <button class="tab-btn"        id="tab-btn-stat"   data-tab="tab-stat"   role="tab" aria-selected="false">
+            <i class="ti ti-chart-bar"></i> <span>Statistik</span>
+          </button>
+        </div>
+
+        <!-- Tab Panel: Daftar Provinsi -->
+        <div id="tab-list" class="tab-panel active-panel" role="tabpanel" aria-labelledby="tab-btn-list">
+          <div class="panel-section panel-search">
+            <div class="search-wrap">
+              <i class="ti ti-search search-icon" aria-hidden="true"></i>
+              <input type="search" id="search-prov" class="search-input"
+                     placeholder="Cari provinsi..." autocomplete="off"
+                     aria-label="Cari provinsi" />
+            </div>
+          </div>
+          <ul id="prov-list" class="prov-list" role="listbox" aria-label="Daftar provinsi"></ul>
+        </div>
+
+        <!-- Tab Panel: Detail Provinsi -->
+        <div id="tab-detail" class="tab-panel d-none" role="tabpanel" aria-labelledby="tab-btn-detail">
+
+          <!-- Empty State -->
+          <div id="sidebar-empty" class="empty-state">
+            <div class="empty-illustration">
+              <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" width="100" height="84">
+                <ellipse cx="60" cy="88" rx="40" ry="6" fill="#E2E8F0"/>
+                <!-- Map outline simplified Indonesia -->
+                <path d="M20 55 Q30 40 50 42 Q65 38 75 45 Q90 42 105 50 Q100 62 85 60 Q70 65 55 58 Q40 65 25 62 Z" fill="#D1FAE5" stroke="#34D399" stroke-width="1.5"/>
+                <circle cx="52" cy="50" r="5" fill="#10B981" stroke="white" stroke-width="1.5"/>
+                <line x1="52" y1="45" x2="52" y2="25" stroke="#10B981" stroke-width="1.5" stroke-dasharray="3 2"/>
+                <circle cx="52" cy="22" r="4" fill="#10B981" stroke="white" stroke-width="1.5"/>
+                <!-- Cursor pointer -->
+                <path d="M85 28 L85 48 L89 44 L93 54 L96 53 L92 43 L97 43 Z" fill="#6366F1" stroke="white" stroke-width="1"/>
+              </svg>
+            </div>
+            <div class="empty-title">Pilih Provinsi</div>
+            <div class="empty-desc">Klik provinsi di peta atau pilih dari daftar untuk melihat detail analitik prediksi GNN.</div>
+          </div>
+
+          <!-- Detail Content -->
+          <div id="sidebar-detail" class="d-none">
+            <!-- Header Provinsi -->
+            <div class="panel-section det-header-section">
+              <div class="det-header">
+                <div id="det-prov-name" class="det-prov-name">—</div>
+                <span id="det-badge" class="cat-badge">—</span>
+              </div>
+            </div>
+
+            <!-- Prediksi vs Aktual -->
+            <div class="panel-section">
+              <div class="panel-label">Prediksi GNN vs Aktual</div>
+              <div class="pred-cards">
+                <div class="pred-card pred-card-main">
+                  <div class="pred-card-icon"><i class="ti ti-cpu"></i></div>
+                  <div class="pred-card-label">Prediksi (ŷ)</div>
+                  <div id="det-pred" class="pred-card-value pred-val-gnn">—</div>
+                </div>
+                <div class="pred-card">
+                  <div class="pred-card-icon pred-icon-actual"><i class="ti ti-plant-2"></i></div>
+                  <div class="pred-card-label">Aktual (Y)</div>
+                  <div id="det-aktual" class="pred-card-value pred-val-actual">—</div>
+                </div>
+              </div>
+              <div class="residual-row">
+                <span class="residual-label"><i class="ti ti-math-symbols"></i> Residual (Y − ŷ)</span>
+                <span id="det-residual" class="residual-value">—</span>
+              </div>
+            </div>
+
+            <!-- Uncertainty -->
+            <div class="panel-section">
+              <div class="panel-label">Uncertainty Model (σ)</div>
+              <div class="unc-row">
+                <span class="unc-label">Std Deviation</span>
+                <span id="det-std" class="unc-value">—</span>
+              </div>
+              <div class="unc-bar-wrap" title="Uncertainty relatif terhadap provinsi lain">
+                <div id="det-unc-bar" class="unc-bar-fill" style="width:0%"></div>
+              </div>
+              <div class="unc-interval">
+                Interval 1-σ: <span id="det-interval" class="unc-interval-val">—</span>
+              </div>
+            </div>
+
+            <!-- Mini Chart: Residual vs Nasional -->
+            <div class="panel-section">
+              <div class="panel-label">Residual vs Rata-rata Nasional</div>
+              <div class="chart-mini">
+                <canvas id="chart-prov-residual"></canvas>
+              </div>
+            </div>
+
+            <!-- Variabel Agroklimat -->
+            <div class="panel-section">
+              <div class="panel-label">Variabel Agroklimat (X)</div>
+              <table class="var-table">
+                <tr><td><i class="ti ti-cloud-rain"></i> Curah Hujan</td><td id="det-rain">—</td></tr>
+                <tr><td><i class="ti ti-thermometer"></i> Suhu Minimum</td><td id="det-suhu">—</td></tr>
+                <tr><td><i class="ti ti-droplet"></i> Kelembaban</td><td id="det-lembab">—</td></tr>
+                <tr><td><i class="ti ti-trending-up"></i> NTP</td><td id="det-ntp">—</td></tr>
+                <tr><td><i class="ti ti-sun"></i> Penyinaran</td><td id="det-sun">—</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Panel: Statistik Nasional -->
+        <div id="tab-stat" class="tab-panel d-none" role="tabpanel" aria-labelledby="tab-btn-stat">
+          <div class="panel-section">
+            <div class="panel-label">Five-Number Summary (Prediksi Mean)</div>
+            <div class="fns-grid">
+              <div class="fns-card fns-min">
+                <div class="fns-lbl">Min</div>
+                <div id="fns-mean-min" class="fns-val">—</div>
+              </div>
+              <div class="fns-card fns-q">
+                <div class="fns-lbl">Q1</div>
+                <div id="fns-mean-q1" class="fns-val">—</div>
+              </div>
+              <div class="fns-card fns-med fns-highlighted">
+                <div class="fns-lbl">Median</div>
+                <div id="fns-mean-median" class="fns-val">—</div>
+              </div>
+              <div class="fns-card fns-q">
+                <div class="fns-lbl">Q3</div>
+                <div id="fns-mean-q3" class="fns-val">—</div>
+              </div>
+              <div class="fns-card fns-max">
+                <div class="fns-lbl">Max</div>
+                <div id="fns-mean-max" class="fns-val">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab switcher JS -->
+        <script>
+          document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const target = btn.dataset.tab;
+              document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+              });
+              btn.classList.add('active');
+              btn.setAttribute('aria-selected', 'true');
+              document.querySelectorAll('#view-peta .tab-panel').forEach(p => {
+                const show = p.id === target;
+                p.classList.toggle('active-panel', show);
+                p.classList.toggle('d-none', !show);
+              });
+            });
+          });
+        </script>
+      </aside>
+
+      <!-- ── MAP AREA ── -->
+      <div class="map-area">
+        <!-- Metric Cards (Macro View) -->
+        <div class="metric-cards-row" id="metric-cards-row">
+          <div class="metric-card metric-min">
+            <div class="metric-icon"><i class="ti ti-arrow-down-circle"></i></div>
+            <div class="metric-body">
+              <div class="metric-label">Min Nasional</div>
+              <div id="metric-min" class="metric-value">0.0000</div>
+              <div class="metric-unit">Ton/Ha</div>
+            </div>
+          </div>
+          <div class="metric-card metric-q1">
+            <div class="metric-icon"><i class="ti ti-chart-histogram"></i></div>
+            <div class="metric-body">
+              <div class="metric-label">Q1 (25%)</div>
+              <div id="metric-q1" class="metric-value">0.0000</div>
+              <div class="metric-unit">Ton/Ha</div>
+            </div>
+          </div>
+          <div class="metric-card metric-median">
+            <div class="metric-icon"><i class="ti ti-activity"></i></div>
+            <div class="metric-body">
+              <div class="metric-label">Median</div>
+              <div id="metric-median" class="metric-value">0.0000</div>
+              <div class="metric-unit">Ton/Ha</div>
+            </div>
+          </div>
+          <div class="metric-card metric-q3">
+            <div class="metric-icon"><i class="ti ti-chart-histogram"></i></div>
+            <div class="metric-body">
+              <div class="metric-label">Q3 (75%)</div>
+              <div id="metric-q3" class="metric-value">0.0000</div>
+              <div class="metric-unit">Ton/Ha</div>
+            </div>
+          </div>
+          <div class="metric-card metric-max">
+            <div class="metric-icon"><i class="ti ti-arrow-up-circle"></i></div>
+            <div class="metric-body">
+              <div class="metric-label">Max Nasional</div>
+              <div id="metric-max" class="metric-value">0.0000</div>
+              <div class="metric-unit">Ton/Ha</div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- Map Container -->
+        <div id="map-container" role="application" aria-label="Peta interaktif Indonesia"></div>
+      </div>
+
+      <!-- ── SIDEBAR KANAN ── -->
+      <aside class="sidebar sidebar-right" role="complementary" aria-label="Panel Analisis">
+
+        <!-- Komparasi Model -->
+        <div class="panel-section">
+          <div class="panel-label">Komparasi Performa Model</div>
+          <table class="comp-table">
+            <thead>
+              <tr><th>Model</th><th>R²</th><th>Adj. R²</th><th>MAE</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>OLS</td>
+                <td class="cell-bad">0.417</td>
+                <td class="cell-bad">0.313</td>
+                <td class="cell-norm">0.146</td>
+              </tr>
+              <tr>
+                <td>GWR</td>
+                <td class="cell-norm">0.685</td>
+                <td class="cell-norm">0.501</td>
+                <td class="cell-norm">0.111</td>
+              </tr>
+              <tr class="row-best">
+                <td><strong>GNN ★</strong></td>
+                <td class="cell-best">0.707</td>
+                <td class="cell-best">0.654</td>
+                <td class="cell-norm">0.112</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Chart Aktual vs Prediksi -->
+        <div class="panel-section">
+          <div class="panel-label">Aktual vs Prediksi GNN
+            <span class="chart-hint">Scatter · ideal = garis abu</span>
+          </div>
+          <div class="chart-container" style="height:200px">
+            <canvas id="chart-avp"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart Residual Nasional -->
+        <div class="panel-section">
+          <div class="panel-label">Residual Nasional (Y − ŷ)
+            <span class="chart-hint">Hijau = under-predict, Merah = over-predict</span>
+          </div>
+          <div class="chart-container" style="height:160px">
+            <canvas id="chart-residual"></canvas>
+          </div>
+        </div>
+
+        <!-- Download Buttons -->
+        <div class="panel-section dl-section">
+          <button id="btn-dl-pdf" class="dl-btn dl-pdf">
+            <i class="ti ti-file-type-pdf"></i> Laporan PDF
+          </button>
+          <button id="btn-dl-excel" class="dl-btn dl-excel">
+            <i class="ti ti-file-spreadsheet"></i> Ekspor Excel
+          </button>
+        </div>
+
+      </aside>
+    </div>
+    <!-- /view-peta -->
+
+    <!-- ==============================================================
+         VIEW 2: PREDIKSI WHAT-IF
+         (Flow TERPISAH — tidak bergantung pada klik peta)
+         ============================================================== -->
+    <div id="view-prediksi" class="app-view d-none">
+      <div class="predict-layout">
+
+        <!-- Panel Kiri: Form Input -->
+        <div class="predict-form-panel">
+          <div class="predict-form-header">
+            <div class="pfh-icon"><i class="ti ti-brain"></i></div>
+            <div>
+              <div class="pfh-title">Simulasi What-If</div>
+              <div class="pfh-sub">Monte Carlo Dropout Inference</div>
+            </div>
+          </div>
+
+          <div class="info-callout">
+            <i class="ti ti-info-circle" aria-hidden="true"></i>
+            <span>Pilih provinsi referensi, sesuaikan variabel agroklimat, lalu jalankan inferensi Bayesian di server.</span>
+          </div>
+
+          <form id="predict-form" novalidate>
+            <!-- Dropdown Provinsi (isolated dari klik peta) -->
+            <div class="form-section">
+              <div class="form-section-title">
+                <i class="ti ti-map-pin"></i> Provinsi Referensi
+              </div>
+              <div class="select-wrap">
+                <select id="f-prov-select" class="form-select" aria-label="Pilih provinsi">
+                  <option value="">— Pilih Provinsi —</option>
+                </select>
+                <i class="ti ti-chevron-down select-arrow" aria-hidden="true"></i>
+              </div>
+              <input type="hidden" id="f-prov-idx" value="0" />
+            </div>
+
+            <!-- Variabel Agroklimat -->
+            <div class="form-section">
+              <div class="form-section-title">
+                <i class="ti ti-adjustments"></i> Variabel Agroklimat
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="f-rain">
+                  <span><i class="ti ti-cloud-rain"></i> Curah Hujan (mm/th)</span>
+                  <span id="lv-rain" class="form-val">2.280</span>
+                </label>
+                <input type="range" id="f-rain" min="810" max="5509" value="2280" step="10" class="slider" aria-label="Curah Hujan" />
+                <div class="slider-labels"><span>810</span><span>5.509</span></div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="f-suhu">
+                  <span><i class="ti ti-thermometer"></i> Suhu Min (°C)</span>
+                  <span id="lv-suhu" class="form-val">21.3</span>
+                </label>
+                <input type="range" id="f-suhu" min="15" max="24" value="21.3" step="0.1" class="slider" aria-label="Suhu Minimum" />
+                <div class="slider-labels"><span>15°C</span><span>24°C</span></div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="f-lembab">
+                  <span><i class="ti ti-droplet"></i> Kelembaban (%)</span>
+                  <span id="lv-lembab" class="form-val">82.1</span>
+                </label>
+                <input type="range" id="f-lembab" min="42" max="88" value="82.1" step="0.1" class="slider" aria-label="Kelembaban" />
+                <div class="slider-labels"><span>42%</span><span>88%</span></div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="f-ntp">
+                  <span><i class="ti ti-trending-up"></i> NTP</span>
+                  <span id="lv-ntp" class="form-val">176.2</span>
+                </label>
+                <input type="range" id="f-ntp" min="98" max="205" value="176.2" step="0.1" class="slider" aria-label="Nilai Tukar Petani" />
+                <div class="slider-labels"><span>98</span><span>205</span></div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="f-sun">
+                  <span><i class="ti ti-sun"></i> Penyinaran (Jam/Hr)</span>
+                  <span id="lv-sun" class="form-val">7.1</span>
+                </label>
+                <input type="range" id="f-sun" min="4.2" max="8.8" value="7.1" step="0.1" class="slider" aria-label="Penyinaran" />
+                <div class="slider-labels"><span>4.2</span><span>8.8</span></div>
+              </div>
+            </div>
+
+            <!-- MC Samples -->
+            <div class="form-section">
+              <div class="form-section-title">
+                <i class="ti ti-cpu-2"></i> Bayesian Inference
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="f-mc">
+                  <span>MC Samples</span>
+                  <span id="lv-mc" class="form-val">1.000</span>
+                </label>
+                <input type="range" id="f-mc" min="50" max="1000" value="1000" step="50" class="slider" aria-label="Monte Carlo Samples" />
+                <div class="slider-labels"><span>50</span><span>1.000</span></div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-predict" id="btn-predict">
+              <i class="ti ti-player-play-filled"></i>
+              <span>Jalankan Prediksi</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Panel Kanan: Output -->
+        <div class="predict-output-panel">
+
+          <!-- Loader -->
+          <div id="predict-loader" class="predict-loader d-none">
+            <div class="predict-loader-spinner"></div>
+            <div>
+              <div style="font-weight:600;color:var(--tp);margin-bottom:2px">Menjalankan MC Dropout ...</div>
+              <div style="font-size:11px;color:var(--ts)">Server sedang melakukan forward pass sebanyak MC×N kali</div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div id="predict-empty" class="empty-state predict-empty">
+            <div class="empty-illustration">
+              <svg viewBox="0 0 140 120" fill="none" xmlns="http://www.w3.org/2000/svg" width="120" height="100">
+                <rect x="20" y="30" width="100" height="70" rx="10" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
+                <rect x="32" y="45" width="35" height="4" rx="2" fill="#A5B4FC"/>
+                <rect x="32" y="55" width="50" height="4" rx="2" fill="#C7D2FE"/>
+                <rect x="32" y="65" width="40" height="4" rx="2" fill="#C7D2FE"/>
+                <!-- Chart bars -->
+                <rect x="80" y="78" width="8" height="15" rx="2" fill="#818CF8"/>
+                <rect x="92" y="68" width="8" height="25" rx="2" fill="#6366F1"/>
+                <rect x="104" y="72" width="8" height="21" rx="2" fill="#818CF8"/>
+                <!-- Arrow -->
+                <path d="M70 15 L70 28" stroke="#6366F1" stroke-width="2" stroke-linecap="round"/>
+                <path d="M65 23 L70 28 L75 23" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="70" cy="10" r="7" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+                <text x="70" y="14" text-anchor="middle" font-size="8" fill="#6366F1" font-weight="bold">AI</text>
+              </svg>
+            </div>
+            <div class="empty-title" style="color:var(--bd)">Siap Menjalankan Inferensi</div>
+            <div class="empty-desc">
+              Pilih provinsi referensi, atur parameter agroklimat,<br>lalu klik <strong style="color:var(--bd)">Jalankan Prediksi</strong>.
+            </div>
+          </div>
+
+          <!-- Hasil Prediksi -->
+          <div id="predict-result" class="d-none">
+            <!-- Result Card Utama -->
+            <div class="result-card">
+              <div class="result-card-header">
+                <div>
+                  <div class="result-prov-name" id="res-prov">—</div>
+                  <div style="font-size:11px;color:var(--ts);margin-top:2px">Hasil Inferensi Bayesian GNN</div>
+                </div>
+                <span id="res-cat" class="cat-badge">—</span>
+              </div>
+
+              <div class="result-main-row">
+                <div>
+                  <div id="res-mean" class="result-main-val">—</div>
+                  <div class="result-unit">Ton/Ha · Estimasi Mean (ŷ̄)</div>
+                </div>
+                <div class="result-conf-box">
+                  <div class="conf-label">Confidence</div>
+                  <div id="res-conf-pct" class="conf-pct">—</div>
+                </div>
+              </div>
+
+              <div class="result-unc-section">
+                <div class="result-unc-row">
+                  <span style="font-size:11px;color:var(--ts)">Uncertainty σ</span>
+                  <span id="res-std" style="font:700 12px var(--mono);color:var(--am)">—</span>
+                </div>
+                <div class="conf-bar-wrap">
+                  <div id="res-conf-bar" class="conf-bar-fill" style="width:60%"></div>
+                </div>
+                <div class="result-interval">
+                  Interval 1-σ: [<span id="res-lower">—</span>, <span id="res-upper">—</span>] Ton/Ha
+                </div>
+              </div>
+            </div>
+
+            <!-- FNS Cards -->
+            <div class="result-section">
+              <div class="result-section-title">Five-Number Summary (Distribusi MC)</div>
+              <div class="fns-grid fns-grid-5col">
+                <div class="fns-card"><div class="fns-lbl">Min</div><div id="res-fns-min" class="fns-val fns-min">—</div></div>
+                <div class="fns-card"><div class="fns-lbl">Q1</div><div id="res-fns-q1" class="fns-val fns-q">—</div></div>
+                <div class="fns-card fns-highlighted"><div class="fns-lbl">Median</div><div id="res-fns-median" class="fns-val fns-med">—</div></div>
+                <div class="fns-card"><div class="fns-lbl">Q3</div><div id="res-fns-q3" class="fns-val fns-q">—</div></div>
+                <div class="fns-card"><div class="fns-lbl">Max</div><div id="res-fns-max" class="fns-val fns-max">—</div></div>
+              </div>
+            </div>
+
+            <!-- MC Histogram -->
+            <div class="result-section">
+              <div class="result-section-title">
+                Distribusi Posterior MC Dropout
+                <span class="chart-hint">Hijau = dalam interval 1-σ</span>
+              </div>
+              <div class="chart-container" style="height:180px">
+                <canvas id="chart-mc-hist"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-prediksi -->
+
+    <!-- ==============================================================
+         VIEW 3: INFO MODEL
+         ============================================================== -->
+    <div id="view-info" class="app-view d-none">
+      <div class="info-layout">
+        <h1 class="info-main-title">
+          <i class="ti ti-chart-dots-3" aria-hidden="true"></i>
+          Arsitektur Model Bayesian Spatial GNN
+        </h1>
+
+        <!-- 3 Model Cards -->
+        <div class="model-3col">
+          <div class="model-card model-card-ols">
+            <div class="model-card-badge badge-red">
+              <i class="ti ti-trending-down"></i> OLS Baseline
+            </div>
+            <div class="model-card-r2 r2-red">0.417</div>
+            <div class="model-card-sub red">R² in-sample</div>
+            <div class="model-card-r2" style="font-size:16px;color:var(--rd)">0.313</div>
+            <div class="model-card-sub red" style="margin-bottom:8px">Adj. R²</div>
+            <div class="model-card-note">
+              Linear underfitting. Hanya Penyinaran (p=0.0009) signifikan. Asumsi spatial independence dilanggar.
+            </div>
+          </div>
+          <div class="model-card model-card-gwr">
+            <div class="model-card-badge badge-amber">
+              <i class="ti ti-map-pin"></i> GWR Baseline
+            </div>
+            <div class="model-card-r2 r2-amber">0.685</div>
+            <div class="model-card-sub amber">R² in-sample</div>
+            <div class="model-card-r2" style="font-size:16px;color:var(--ad)">0.501</div>
+            <div class="model-card-sub amber" style="margin-bottom:8px">Adj. R²</div>
+            <div class="model-card-note">
+              BW=32, adaptive bisquare. Local overfitting −18.38%. Tidak dapat prediksi out-of-sample.
+            </div>
+          </div>
+          <div class="model-card model-card-best">
+            <div class="model-card-badge badge-green">
+              <i class="ti ti-star-filled"></i> GNN Bayesian Final
+            </div>
+            <div class="model-card-r2 r2-green">0.707</div>
+            <div class="model-card-sub green">R² in-sample</div>
+            <div class="model-card-r2" style="font-size:16px;color:var(--gd)">0.654</div>
+            <div class="model-card-sub green" style="margin-bottom:8px">Adj. R²</div>
+            <div class="model-card-note">
+              K=8, LeakyReLU, Dim=64. Adj. R² turun hanya −5.24% (efisien). MC Dropout 1000× untuk distribusi posterior.
+            </div>
+          </div>
+        </div>
+
+        <!-- Hyperparameters -->
+        <div class="info-card">
+          <div class="info-card-title">Hyperparameter Model Terpilih (GNN Bayesian)</div>
+          <div class="hp-grid">
+            <div class="hp-item"><div class="hp-lbl">K-NN Spasial</div><div class="hp-val hp-green">8</div></div>
+            <div class="hp-item"><div class="hp-lbl">Hidden Dim</div><div class="hp-val">64</div></div>
+            <div class="hp-item"><div class="hp-lbl">Aktivasi</div><div class="hp-val">LeakyReLU</div></div>
+            <div class="hp-item"><div class="hp-lbl">Dropout</div><div class="hp-val">0.10</div></div>
+            <div class="hp-item"><div class="hp-lbl">Learning Rate</div><div class="hp-val">0.010</div></div>
+            <div class="hp-item"><div class="hp-lbl">Epochs</div><div class="hp-val">5.000</div></div>
+            <div class="hp-item"><div class="hp-lbl">R² In-Sample</div><div class="hp-val hp-green">0.7066</div></div>
+            <div class="hp-item"><div class="hp-lbl">MAE</div><div class="hp-val">0.1120</div></div>
+          </div>
+        </div>
+
+        <!-- Pipeline -->
+        <div class="info-card">
+          <div class="info-card-title">Pipeline Inferensi Bayesian</div>
+          <div class="pipeline">
+            <div class="pipe-step pipe-green">Input X<small>5 variabel agroklimat</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-blue">PowerTransform<small>Yeo-Johnson</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-purple">GCN Layer 1<small>Spatial aggregation</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-purple">MC Dropout<small>p=0.10 aktif</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-purple">GCN Layer 2<small>Output scalar</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-amber">×N forward<small>MC samples</small></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-green">Posterior<small>μ, σ, FNS</small></div>
+          </div>
+        </div>
+
+        <!-- Grid Search Result -->
+        <div class="info-card">
+          <div class="info-card-title">Grid Search Results (Top Konfigurasi)</div>
+          <div class="table-scroll">
+            <table class="gs-table">
+              <thead>
+                <tr>
+                  <th>Konfigurasi</th><th>K</th><th>Dim</th><th>Aktivasi</th><th>R²</th><th>Adj. R²</th><th>MAE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="gs-best"><td>★ Terpilih</td><td>8</td><td>64</td><td>LeakyReLU</td><td>0.7066</td><td>0.6540</td><td>0.1120</td></tr>
+                <tr><td>Config B</td><td>6</td><td>64</td><td>LeakyReLU</td><td>0.6912</td><td>0.6380</td><td>0.1189</td></tr>
+                <tr><td>Config C</td><td>8</td><td>32</td><td>LeakyReLU</td><td>0.6743</td><td>0.6210</td><td>0.1233</td></tr>
+                <tr class="gs-worst"><td>Config D</td><td>4</td><td>32</td><td>ReLU</td><td>0.5821</td><td>0.5287</td><td>0.1451</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="elbow-note">
+            <i class="ti ti-bulb"></i>
+            <span>K=8 adalah "elbow point" — menambah K lebih lanjut meningkatkan Adj. R² &lt;0.5% namun menambah kompleksitas spasial signifikan.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- /view-info -->
+
+  </main>
+
+  <!-- ================================================================
+       STATUS BAR
+       ================================================================ -->
+  <footer class="statusbar" role="contentinfo">
+    <span class="sb-status">
+      <span class="sb-dot"></span>
+      <span>Online</span>
+    </span>
+    <span class="sb-sep" aria-hidden="true">|</span>
+    <span>BPS &amp; BMKG 2024 · Bayesian Spatial GNN (K=8, Dim=64, MC×1000)</span>
+    <span class="sb-right">Universitas Bina Nusantara · 2025 · Clement Nathanael</span>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS (CDN — semua sudah tersedia via CDN saat dev)
+       ================================================================ -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- App Modules (ES6) -->
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
